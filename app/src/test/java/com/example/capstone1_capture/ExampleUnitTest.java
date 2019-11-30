@@ -1,4 +1,4 @@
-package com.example.user.airbutton_capture;
+package com.example.capstone1_capture;
 
 import org.junit.Test;
 

@@ -1,32 +1,21 @@
-package com.example.user.airbutton_capture;
+package com.example.capstone1_capture;
 
-
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
-import android.net.Uri;
-import android.os.Environment;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.LinearLayout;
-import android.widget.Toast;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 public class CaptureService extends Service {
     private WindowManager windowManager2;
-    public static View squareFrame;
+    public View squareFrame;
+
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -44,6 +33,7 @@ public class CaptureService extends Service {
         Log.d("test", "set inflater");
         //squareFrame.setOnTouchListener(this);
 
+
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -56,8 +46,12 @@ public class CaptureService extends Service {
         params.gravity = Gravity.RIGHT;
         windowManager2 = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         windowManager2.addView(squareFrame, params);
-    }
 
+
+        int location[] = new int[2];
+        Log.d("testlocation", "---------------------Width : " + location[0]);
+        Log.d("testlocation","----------------------Height : " + location[1]);
+    }
 
 
     @Override

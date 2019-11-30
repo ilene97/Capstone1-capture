@@ -1,18 +1,13 @@
-package com.example.user.airbutton_capture;
+package com.example.capstone1_capture;
 
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
-import android.hardware.display.DisplayManager;
-import android.hardware.display.VirtualDisplay;
-import android.media.Image;
 import android.media.ImageReader;
-import android.media.projection.MediaProjection;
-import android.media.projection.MediaProjectionManager;
-import android.os.Environment;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -26,31 +21,13 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
-import static com.example.user.airbutton_capture.CaptureService.squareFrame;
 
 public class FloatingService extends Service implements View.OnTouchListener{
     private String TAG = "FloatingService";
-    static final String EXTRA_RESULT_CODE="resultCode";
-    static final String EXTRA_RESULT_INTENT="resultIntent";
-    private int resultCode;
-    private Intent resultData;
 
     private WindowManager windowManager;
     private View floatingView;
-    public int screenDensity;
-    public int displayWidth, displayHeight;
-    public ImageReader imageReader;
-    public VirtualDisplay virtualDisplay;
-    private MediaProjectionManager mpManager;
-    private MediaProjection mProjection;
+
 
     private LinearLayout first_overlay;
     private LinearLayout second_overlay;
@@ -60,6 +37,9 @@ public class FloatingService extends Service implements View.OnTouchListener{
     private ImageButton appButton;
     private ImageButton backButton;
     private ImageButton captureOrBackButton;
+
+    public int screenDensity;
+    public int displayWidth, displayHeight;
 
     float xpos = 0;
     float ypos = 0;
@@ -72,18 +52,9 @@ public class FloatingService extends Service implements View.OnTouchListener{
     @Override
     public void onCreate() {
         super.onCreate();
-        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        final LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         floatingView = inflater.inflate(R.layout.activity_floating, null);
         floatingView.setOnTouchListener(this);
-
-        //Displaymetrics로 화면의 가로 세로 크기와 dp를 얻을
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        windowManager.getDefaultDisplay().getMetrics(displayMetrics);  //getWindowManager는 액티비티에서만 되고 서비스에서는 안됨
-        screenDensity = displayMetrics.densityDpi;  //이것도.. 서비스에서 따로 하면 안되는듯
-        displayWidth = displayMetrics.widthPixels;
-        displayHeight = displayMetrics.heightPixels;
-        mpManager = (MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE); //미디어프로젝션 시작?
-        setUpMediaProjection(resultCode,resultData);
 
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -106,7 +77,12 @@ public class FloatingService extends Service implements View.OnTouchListener{
         appButton = floatingView.findViewById(R.id.app_button);
         captureOrBackButton = floatingView.findViewById(R.id.capture_or_back_button);
 
-
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        windowManager.getDefaultDisplay().getMetrics(displayMetrics);
+        screenDensity = displayMetrics.densityDpi;
+        displayWidth = displayMetrics.widthPixels;
+        displayHeight = displayMetrics.heightPixels;
 
 
         airButton.setOnClickListener(new View.OnClickListener() {
@@ -136,9 +112,16 @@ public class FloatingService extends Service implements View.OnTouchListener{
         captureOrBackButton.setOnClickListener(new View.OnClickListener(){
             @Override
             public void onClick(View v){
-                Toast.makeText(getApplicationContext(),"capture!",Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(getApplicationContext(), CaptureActivity.class );
+                PendingIntent pendingIntent = PendingIntent.getActivity(getApplicationContext(), 1001, intent, 0);
+                try {
+                    pendingIntent.send();
+                }
+                catch(PendingIntent.CanceledException e) {
+                    Log.d("test", "-------------------------pending exception ");
+                    e.printStackTrace();
+                }
 
-                getScreenshot();
             }
         });
         captureOrBackButton.setOnLongClickListener(new View.OnLongClickListener() {
@@ -186,19 +169,6 @@ public class FloatingService extends Service implements View.OnTouchListener{
 
 
 
-    @Override
-    public void onDestroy() {
-        if (virtualDisplay != null) {
-            Log.d("debug","release VirtualDisplay");
-            virtualDisplay.release();
-        }
-        if (floatingView != null) {
-            windowManager.removeView(floatingView);
-            floatingView = null;
-        }
-
-        super.onDestroy();
-    }
 
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
@@ -237,7 +207,7 @@ public class FloatingService extends Service implements View.OnTouchListener{
         return false;
     }
 
-
+/*
     @Override
     public int onStartCommand(Intent i, int flags, int startId){
         if (i.getAction()==null) {
@@ -246,82 +216,17 @@ public class FloatingService extends Service implements View.OnTouchListener{
         }
         return(START_NOT_STICKY);
     }
+*/
 
-    private void setUpMediaProjection(int code, Intent intent) {
-        mProjection = mpManager.getMediaProjection(code, intent);
-        setUpVirtualDisplay();
-    }
+    @Override
+    public void onDestroy() {
 
-    private void setUpVirtualDisplay() {
-        imageReader = ImageReader.newInstance(
-                displayWidth, displayHeight, PixelFormat.RGBA_8888, 2);
-
-        virtualDisplay = mProjection.createVirtualDisplay("ScreenCapture",
-                displayWidth, displayHeight, screenDensity,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader.getSurface(), null, null);
-    }
-
-
-    public void getScreenshot() {
-        // ImageReader에서 화면을 검색
-        Log.d("debug", "getScreenshot");
-
-        Image image = imageReader.acquireLatestImage();
-        Image.Plane[] planes = image.getPlanes();
-        ByteBuffer buffer = planes[0].getBuffer();
-
-        int pixelStride = planes[0].getPixelStride();
-        int rowStride = planes[0].getRowStride();
-        int rowPadding = rowStride - pixelStride * displayWidth;
-
-        // 버퍼에서 Bitmap을 생성
-        Bitmap bitmap = Bitmap.createBitmap(
-                displayWidth + rowPadding / pixelStride, displayHeight,
-                Bitmap.Config.ARGB_8888);
-        bitmap.copyPixelsFromBuffer(buffer);
-        image.close();
-
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String fileName = "Screenshot" + timeStamp;
-
-        saveBitmaptoJPEG(bitmap, fileName);
-
-    }
-
-    public static void saveBitmaptoJPEG(Bitmap bitmap, String name){
-        String ex_storage = Environment.getExternalStorageDirectory().getAbsolutePath()+"/DCIM/Camera/";
-        //String folder_name = "/"+"ScreenShot"+"/";
-        String file_name = name+".jpg";
-        String string_path = ex_storage;
-
-        File file_path;
-        try{
-            Log.d("debug", "트라이는 들어왔따");
-            file_path = new File(string_path);
-            if(!file_path.isDirectory()){
-                Log.d("debug", "디렉토리 없어서 만들려고 한다");
-                file_path.mkdirs();
-            }
-            FileOutputStream out = new FileOutputStream(string_path+file_name);
-
-            bitmap = cropBitmap(bitmap);
-            bitmap.compress(Bitmap.CompressFormat.JPEG,100,out);
-            Log.d("debug", "@@@@@@@@2bitmap to jpeg");
-            out.close();
-        }catch (FileNotFoundException e){
-            Log.e("FileNotFoundException",e.getMessage());
-        }catch (IOException e){
-            Log.e("IOException",e.getMessage());
+        if (floatingView != null) {
+            windowManager.removeView(floatingView);
+            floatingView = null;
         }
-    }
 
-    public static Bitmap cropBitmap(Bitmap original){
-        Bitmap result = Bitmap.createBitmap(original
-                , 0, 0
-                ,original.getWidth(), original.getHeight()/4); //시작x,시작y,넓이,높이
-        return result;
-
+        super.onDestroy();
     }
 
 
